@@ -10,8 +10,13 @@ RUN apt update && apt install -y \
 RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
     apt install -y openjdk-17-jdk
 
-# تعيين JDK الافتراضي إلى JDK 17 (لأن إعدادات المشروع تعتمد على Java 17)
-ENV JAVA_HOME=/usr/lib/jvm/openjdk17-amd64
+ تثبيت Google Chrome (إذا كان التطوير على الويب مطلوباً؛ إن لم يكن يمكن حذف السطر)
+RUN apt update && apt install -y google-chrome-stable
+
+# تثبيت Java JDK 17 فقط (حذف openjdk-23-jdk لتفادي مشاكل المكتبات)
+RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
+    apt install -y openjdk-17-jdk
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
 # تثبيت Gradle wrapper أو Gradle الإصدار 8.10.2 (يفضل استخدام الـ wrapper، لكن هنا سنقوم بتنزيله)
@@ -50,8 +55,6 @@ RUN /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --version
 RUN yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses && \
     /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager \
     "platforms;android-35" "build-tools;36.0.0" "ndk;27.0.12077973" "cmdline-tools;latest" "platform-tools"
-
-
 
 # تثبيت ADB لدعم AppView على الهاتف
 RUN apt install -y adb
