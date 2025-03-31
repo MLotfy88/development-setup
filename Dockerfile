@@ -56,9 +56,8 @@ RUN yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses && \
 RUN apt install -y adb
 
 # إعداد Gradle لتبديل Groovy <-> Kotlin أثناء التثبيت الأولي
-# سيتم تشغيل السكريبت setup-gradle.sh لاحقاً
 COPY setup-gradle.sh /root/setup-gradle.sh
-RUN chmod +x /root/setup-gradle.sh && /root/setup-gradle.sh
+RUN mkdir -p /root/workspace && chmod +x /root/setup-gradle.sh && /root/setup-gradle.sh
 
 # نسخ سكريبتات الإعداد الأخرى
 COPY setup.sh /root/setup.sh
@@ -66,8 +65,6 @@ RUN chmod +x /root/setup.sh
 COPY auto_sync.sh /root/auto_sync.sh
 RUN chmod +x /root/auto_sync.sh
 
-# إعداد SSH: نسخ إعدادات SSH إذا وُجد ملف ssh_config (يمكنك تعديله حسب الحاجة)
+# التأكد من أن ssh_config موجود قبل نسخه
 COPY ssh_config /etc/ssh/sshd_config
 
-# تشغيل SSH عند بدء تشغيل الحاوية
-CMD ["/bin/bash", "-c", "/root/setup.sh"]
