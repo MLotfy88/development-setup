@@ -32,8 +32,10 @@ WORKDIR /opt/android-sdk
 # تنزيل أدوات سطر الأوامر الخاصة بـ Android SDK
 RUN mkdir -p /opt/android-sdk/cmdline-tools/latest && \
     wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
-    unzip cmd-tools.zip -d /opt/android-sdk/cmdline-tools/latest && \
+    unzip cmd-tools.zip -d /opt/android-sdk/cmdline-tools && \
     rm cmd-tools.zip && \
+    mv /opt/android-sdk/cmdline-tools/cmdline-tools/* /opt/android-sdk/cmdline-tools/latest/ && \
+    rmdir /opt/android-sdk/cmdline-tools/cmdline-tools && \
     chmod +x /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager
 
 # ضبط متغيرات البيئة للـ Android SDK
@@ -47,6 +49,7 @@ RUN /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --version
 RUN yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses && \
     /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager \
     "platforms;android-35" "build-tools;36.0.0" "ndk;27.0.12077973" "cmdline-tools;latest" "platform-tools"
+
 
 
 # تثبيت ADB لدعم AppView على الهاتف
