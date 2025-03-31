@@ -1,10 +1,14 @@
 # استخدم Ubuntu 22.04 كأساس
 FROM ubuntu:22.04
 
-# تحديث النظام وتثبيت الأدوات الأساسية
 RUN apt update && apt install -y \
     curl wget unzip git openssh-server nano software-properties-common \
-    cmake ninja-build clang pkg-config libgtk-3-dev google-chrome-stable
+    cmake ninja-build clang pkg-config libgtk-3-dev
+
+# إضافة مستودع Google Chrome
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-chrome-keyring.gpg && \
+    echo "deb [signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list && \
+    apt update && apt install -y google-chrome-stable
 
 # تثبيت Java JDK 17 
 RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
