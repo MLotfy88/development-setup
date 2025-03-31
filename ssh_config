@@ -1,0 +1,3 @@
+# هذا الملف يضبط إعدادات SSH داخل الحاوية
+PermitRootLogin yes
+PasswordAuthentication yes
