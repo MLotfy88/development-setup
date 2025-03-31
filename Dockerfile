@@ -33,19 +33,21 @@ WORKDIR /opt/android-sdk
 RUN mkdir -p /opt/android-sdk/cmdline-tools/latest && \
     wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
     unzip cmd-tools.zip -d /opt/android-sdk/cmdline-tools/latest && \
-    rm cmd-tools.zip
-
+    rm cmd-tools.zip && \
+    chmod +x /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager
 
 # ضبط متغيرات البيئة للـ Android SDK
 ENV ANDROID_HOME=/opt/android-sdk
 ENV PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
 
-# تثبيت حزم Android SDK المطلوبة:
-# - منصة android-35 (لأن compileSdk هو 35)
-# - Build Tools;36.0.0 (يمكنك اختيار 36.0.0 أو 34.0.0، هنا اخترنا 36.0.0)
-# - NDK;27.0.12077973 (كما هو مُفضّل)
-RUN yes | sdkmanager --licenses && sdkmanager \
+# التأكد من أن sdkmanager يعمل
+RUN /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --version
+
+# تثبيت حزم Android SDK المطلوبة
+RUN yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses && \
+    /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager \
     "platforms;android-35" "build-tools;36.0.0" "ndk;27.0.12077973" "cmdline-tools;latest" "platform-tools"
+
 
 # تثبيت ADB لدعم AppView على الهاتف
 RUN apt install -y adb
