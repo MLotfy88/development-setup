@@ -3,14 +3,15 @@ FROM ubuntu:22.04
 
 # تحديث النظام وتثبيت الأدوات الأساسية
 RUN apt update && apt install -y \
-    curl wget unzip git openssh-server nano software-properties-common
+    curl wget unzip git openssh-server nano software-properties-common \
+    cmake ninja-build clang pkg-config libgtk-3-dev google-chrome-stable
 
 # تثبيت Java JDK 17 
 RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
     apt install -y openjdk-17-jdk
 
 # تعيين JDK الافتراضي إلى JDK 17 (لأن إعدادات المشروع تعتمد على Java 17)
-ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/openjdk17-amd64
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
 # تثبيت Gradle wrapper أو Gradle الإصدار 8.10.2 (يفضل استخدام الـ wrapper، لكن هنا سنقوم بتنزيله)
