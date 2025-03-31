@@ -11,7 +11,7 @@ fi
 cd /root/workspace
 if [ ! -d "project" ]; then
     echo "🚀 استنساخ مستودع المشروع لأول مرة..."
-    git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_PROJECT_REPO.git project
+    git clone https://github.com/MLotfy88/MediSwitch-Final.git project
 else
     echo "✅ المشروع موجود بالفعل، يتم التحديث..."
     cd project && git pull origin main && cd ..
