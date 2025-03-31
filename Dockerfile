@@ -5,9 +5,9 @@ FROM ubuntu:22.04
 RUN apt update && apt install -y \
     curl wget unzip git openssh-server nano software-properties-common
 
-# تثبيت Java JDK 17 و JDK 23
+# تثبيت Java JDK 17 
 RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
-    apt install -y openjdk-17-jdk openjdk-23-jdk
+    apt install -y openjdk-17-jdk
 
 # تعيين JDK الافتراضي إلى JDK 17 (لأن إعدادات المشروع تعتمد على Java 17)
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
