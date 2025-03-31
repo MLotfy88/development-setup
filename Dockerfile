@@ -28,13 +28,13 @@ ENV PATH="/opt/flutter/bin:$PATH"
 
 # تثبيت Android SDK و NDK
 WORKDIR /opt/android-sdk
-RUN mkdir -p /opt/android-sdk/cmdline-tools && \
-    cd /opt/android-sdk && \
-    wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
-    unzip cmd-tools.zip -d /opt/android-sdk && \
-    rm cmd-tools.zip && \
-    mkdir -p /opt/android-sdk/cmdline-tools/latest && \
-    mv /opt/android-sdk/cmdline-tools/* /opt/android-sdk/cmdline-tools/latest
+
+# تنزيل أدوات سطر الأوامر الخاصة بـ Android SDK
+RUN mkdir -p /opt/android-sdk/cmdline-tools/latest && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
+    unzip cmd-tools.zip -d /opt/android-sdk/cmdline-tools/latest && \
+    rm cmd-tools.zip
+
 
 # ضبط متغيرات البيئة للـ Android SDK
 ENV ANDROID_HOME=/opt/android-sdk
