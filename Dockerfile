@@ -10,7 +10,7 @@ RUN apt update && apt install -y \
 RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
     apt install -y openjdk-17-jdk
 
- تثبيت Google Chrome (إذا كان التطوير على الويب مطلوباً؛ إن لم يكن يمكن حذف السطر)
+# تثبيت Google Chrome (إذا كان التطوير على الويب مطلوباً؛ إن لم يكن يمكن حذف السطر)
 RUN apt update && apt install -y google-chrome-stable
 
 # تثبيت Java JDK 17 فقط (حذف openjdk-23-jdk لتفادي مشاكل المكتبات)
