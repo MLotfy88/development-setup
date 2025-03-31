@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euxo pipefail
 # تشغيل SSH داخل الحاوية
 service ssh start
 
