@@ -21,7 +21,9 @@ ENV PATH="$GRADLE_HOME/bin:$PATH"
 
 # تثبيت Flutter (نسخة 3.29.2)
 WORKDIR /opt
-RUN git clone --branch 3.29.2-stable https://github.com/flutter/flutter.git
+RUN wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.29.2-stable.tar.xz && \
+    tar xf flutter_linux_3.29.2-stable.tar.xz -C /opt && \
+    rm flutter_linux_3.29.2-stable.tar.xz
 ENV PATH="/opt/flutter/bin:$PATH"
 
 # تثبيت Android SDK و NDK
