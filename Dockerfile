@@ -15,6 +15,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
     nano \
     software-properties-common \
+    # gnupg and dirmngr are needed for add-apt-repository to import keys
+    gnupg \
+    dirmngr \
     # Linux build dependencies from flutter doctor & build errors
     cmake \
     ninja-build \
