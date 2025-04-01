@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
     nano \
     software-properties-common \
+    # xz-utils is needed to extract .tar.xz archives (like Flutter SDK)
+    xz-utils \
     # gnupg and dirmngr are needed for add-apt-repository to import keys
     gnupg \
     dirmngr \
