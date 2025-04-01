@@ -1,29 +1,21 @@
 # استخدم Ubuntu 22.04 كأساس
 FROM ubuntu:22.04
 
+# تحديث النظام وتثبيت الأدوات الأساسية والحزم المطلوبة لتطوير Linux وتشغيل Flutter في بيئة headless
 RUN apt update && apt install -y \
     curl wget unzip git openssh-server nano software-properties-common \
-    cmake ninja-build clang pkg-config libgtk-3-dev
+    cmake ninja-build clang pkg-config libgtk-3-dev xvfb
 
-# إضافة مستودع Google Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-chrome-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list && \
-    apt update && apt install -y google-chrome-stable
-
-# تثبيت Java JDK 17 
-RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
-    apt install -y openjdk-17-jdk
-
-# تثبيت Google Chrome (إذا كان التطوير على الويب مطلوباً؛ إن لم يكن يمكن حذف السطر)
+# تثبيت Google Chrome (إذا كان التطوير على الويب مطلوباً؛ إن لم يكن يمكنك إزالة السطر)
 RUN apt update && apt install -y google-chrome-stable
 
-# تثبيت Java JDK 17 فقط (حذف openjdk-23-jdk لتفادي مشاكل المكتبات)
+# تثبيت Java JDK 17 فقط (حذف openjdk-23-jdk لتفادي المشاكل في مكتبات لينكس)
 RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
     apt install -y openjdk-17-jdk
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
-# تثبيت Gradle wrapper أو Gradle الإصدار 8.10.2 (يفضل استخدام الـ wrapper، لكن هنا سنقوم بتنزيله)
+# تثبيت Gradle (نسخة 8.10.2)
 RUN wget https://services.gradle.org/distributions/gradle-8.10.2-bin.zip && \
     unzip gradle-8.10.2-bin.zip -d /opt && rm gradle-8.10.2-bin.zip
 ENV GRADLE_HOME=/opt/gradle-8.10.2
@@ -31,48 +23,51 @@ ENV PATH="$GRADLE_HOME/bin:$PATH"
 
 # تثبيت Flutter (نسخة 3.29.2)
 WORKDIR /opt
-RUN wget -q https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.29.2-stable.tar.xz && \
-    tar xf flutter_linux_3.29.2-stable.tar.xz -C /opt && \
-    rm flutter_linux_3.29.2-stable.tar.xz
+RUN git clone --branch 3.29.2-stable https://github.com/flutter/flutter.git
+# تأكد من إضافة مسار Flutter بشكل دائم
 ENV PATH="/opt/flutter/bin:$PATH"
 
-# تثبيت Android SDK و NDK
+# تثبيت Android SDK وNDK:
+# - نقوم بإنشاء مجلد cmdline-tools
 WORKDIR /opt/android-sdk
-
-# تنزيل أدوات سطر الأوامر الخاصة بـ Android SDK
-RUN mkdir -p /opt/android-sdk/cmdline-tools/latest && \
-    wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
-    unzip cmd-tools.zip -d /opt/android-sdk/cmdline-tools && \
+RUN mkdir -p /opt/android-sdk/cmdline-tools && \
+    cd /opt/android-sdk && \
+    wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
+    unzip cmd-tools.zip -d /opt/android-sdk && \
     rm cmd-tools.zip && \
-    mv /opt/android-sdk/cmdline-tools/cmdline-tools/* /opt/android-sdk/cmdline-tools/latest/ && \
-    rmdir /opt/android-sdk/cmdline-tools/cmdline-tools && \
-    chmod +x /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager
+    \
+    # إذا كان هناك أكثر من مجلد داخل cmdline-tools (مثل latest و latest-2) نستخدم الإصدار الأحدث:
+    if [ -d "cmdline-tools/latest-2" ]; then \
+         rm -rf cmdline-tools/latest && mv cmdline-tools/latest-2 cmdline-tools/latest; \
+    fi
 
-# ضبط متغيرات البيئة للـ Android SDK
+# ضبط متغيرات البيئة الخاصة بالأندرويد
 ENV ANDROID_HOME=/opt/android-sdk
-ENV PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV PATH="$PATH:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin"
 
-# التأكد من أن sdkmanager يعمل
-RUN /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --version
-
-# تثبيت حزم Android SDK المطلوبة
-RUN yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses && \
-    /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+# تثبيت حزم Android SDK المطلوبة مع تجاوز تأكيدات التثبيت
+RUN yes | sdkmanager --licenses && sdkmanager \
     "platforms;android-35" "build-tools;36.0.0" "ndk;27.0.12077973" "cmdline-tools;latest" "platform-tools"
 
-# تثبيت ADB لدعم AppView على الهاتف
+# تثبيت ADB لتوصيل الهاتف
 RUN apt install -y adb
 
-# إعداد Gradle لتبديل Groovy <-> Kotlin أثناء التثبيت الأولي
+# إعداد سكريبت تبديل إعدادات Gradle (setup-gradle.sh) لتبديل DSL مؤقتاً أثناء البناء
 COPY setup-gradle.sh /root/setup-gradle.sh
-RUN mkdir -p /root/workspace && chmod +x /root/setup-gradle.sh && /root/setup-gradle.sh
+RUN chmod +x /root/setup-gradle.sh && /root/setup-gradle.sh
 
-# نسخ سكريبتات الإعداد الأخرى
+# نسخ سكريبتات الإعداد الأخرى (setup.sh و auto_sync.sh) وضبط التصاريح
 COPY setup.sh /root/setup.sh
 RUN chmod +x /root/setup.sh
 COPY auto_sync.sh /root/auto_sync.sh
 RUN chmod +x /root/auto_sync.sh
 
-# التأكد من أن ssh_config موجود قبل نسخه
+# (اختياري) نسخ ملف إعداد SSH إذا وُجد لتعديل إعدادات SSH داخل الحاوية
 COPY ssh_config /etc/ssh/sshd_config
 
+# ضبط PATH الدائم لجميع الأدوات (Flutter، Android SDK) عبر إضافة الأسطر إلى /root/.bashrc
+RUN echo 'export PATH="$PATH:/opt/flutter/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin"' >> /root/.bashrc
+
+# عند بدء تشغيل الحاوية، يتم تشغيل سكريبت setup.sh الذي يقوم بتشغيل SSH واستنساخ المشروع وغيرها من الإعدادات
+CMD ["/bin/bash", "-c", "/root/setup.sh"]
