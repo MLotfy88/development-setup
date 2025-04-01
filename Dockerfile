@@ -1,72 +1,125 @@
-# استخدم Ubuntu 22.04 كأساس
+# Use Ubuntu 22.04 as the base image
 FROM ubuntu:22.04
 
-# تحديث النظام وتثبيت الأدوات الأساسية والحزم المطلوبة لتطوير Linux وتشغيل Flutter في بيئة headless
-RUN apt update && apt install -y \
-    curl wget unzip git openssh-server nano software-properties-common \
-        cmake ninja-build clang pkg-config libgtk-3-dev liblzma-dev xvfb
+# Set frontend to noninteractive to avoid prompts during apt installs
+ENV DEBIAN_FRONTEND=noninteractive
 
-        # تثبيت Google Chrome (إذا كان التطوير على الويب مطلوباً؛ إن لم يكن يمكن حذف السطر)
-        RUN apt update && apt install -y google-chrome-stable
+# Update, install base tools, SSH, Java PPA tools, Linux dev tools, headless display, ADB
+# Combine installs and clean up apt cache
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    wget \
+    unzip \
+    git \
+    openssh-server \
+    nano \
+    software-properties-common \
+    # Linux build dependencies from flutter doctor & build errors
+    cmake \
+    ninja-build \
+    clang \
+    pkg-config \
+    libgtk-3-dev \
+    liblzma-dev \
+    # Headless display support
+    xvfb \
+    # Android Debug Bridge
+    adb \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-        # تثبيت Java JDK 17 فقط (حذف openjdk-23-jdk لتفادي مشاكل المكتبات)
-        RUN add-apt-repository ppa:linuxuprising/java -y && apt update && \
-            apt install -y openjdk-17-jdk
-            ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-            ENV PATH="$JAVA_HOME/bin:$PATH"
+# (Optional) Install Google Chrome for web testing
+# If not needed, comment out or remove this RUN block
+RUN apt-get update && \
+    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -P /tmp && \
+    apt-get install -y /tmp/google-chrome-stable_current_amd64.deb && \
+    rm /tmp/google-chrome-stable_current_amd64.deb && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-            # تثبيت Gradle (نسخة 8.10.2)
-            RUN wget https://services.gradle.org/distributions/gradle-8.10.2-bin.zip && \
-                unzip gradle-8.10.2-bin.zip -d /opt && rm gradle-8.10.2-bin.zip
-                ENV GRADLE_HOME=/opt/gradle-8.10.2
-                ENV PATH="$GRADLE_HOME/bin:$PATH"
+# Install Java JDK 17 (required by project)
+RUN add-apt-repository ppa:linuxuprising/java -y && apt-get update && \
+    apt-get install -y --no-install-recommends openjdk-17-jdk && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH="$JAVA_HOME/bin:$PATH"
 
-                # تثبيت Flutter (نسخة 3.29.2) وتحديث الـ cache تلقائياً
-                WORKDIR /opt
-                RUN git clone --branch 3.29.2-stable https://github.com/flutter/flutter.git
-                ENV PATH="/opt/flutter/bin:$PATH"
-                RUN flutter precache
+# Install Gradle (version 8.10.2)
+ENV GRADLE_VERSION=8.10.2
+RUN wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -P /tmp && \
+    unzip /tmp/gradle-${GRADLE_VERSION}-bin.zip -d /opt && \
+    rm /tmp/gradle-${GRADLE_VERSION}-bin.zip
+ENV GRADLE_HOME=/opt/gradle-${GRADLE_VERSION}
+ENV PATH="$GRADLE_HOME/bin:$PATH"
 
-                # تثبيت Android SDK وNDK:
-                WORKDIR /opt/android-sdk
-                RUN mkdir -p /opt/android-sdk/cmdline-tools && \
-                    cd /opt/android-sdk && \
-                        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmd-tools.zip && \
-                            unzip cmd-tools.zip -d /opt/android-sdk && \
-                                rm cmd-tools.zip && \
-                                    \
-                                        # إذا كان هناك أكثر من مجلد داخل cmdline-tools (مثل "latest" و "latest-2")، نستخدم الإصدار الأحدث:
-                                            if [ -d "cmdline-tools/latest-2" ]; then \
-                                                     rm -rf cmdline-tools/latest && mv cmdline-tools/latest-2 cmdline-tools/latest; \
-                                                         fi
+# Install Flutter SDK (version 3.29.2) using official archive
+ENV FLUTTER_VERSION=3.29.2
+WORKDIR /opt
+RUN wget https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz -P /tmp && \
+    tar xf /tmp/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz -C /opt && \
+    rm /tmp/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz
+ENV PATH="/opt/flutter/bin:$PATH"
+# Run flutter doctor as root during build to download Dart SDK, artifacts, and create cache files with root ownership
+RUN flutter doctor
 
-                                                         # ضبط متغيرات البيئة الخاصة بالأندرويد
-                                                         ENV ANDROID_HOME=/opt/android-sdk
-                                                         ENV ANDROID_SDK_ROOT=/opt/android-sdk
-                                                         ENV PATH="$PATH:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin"
+# Install Android SDK and NDK in /sdk
+ENV ANDROID_SDK_ROOT=/sdk
+# Create user and group for sdkmanager to potentially avoid root issues, though we run sdkmanager as root here.
+# RUN groupadd --system android-sdk && \
+#     useradd --system --gid android-sdk android-sdk-user
+RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    # chown -R android-sdk-user:android-sdk ${ANDROID_SDK_ROOT} && \
+    wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmd-tools.zip && \
+    unzip /tmp/cmd-tools.zip -d ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    rm /tmp/cmd-tools.zip && \
+    # Handle the potential nested 'cmdline-tools' directory after unzipping
+    # And handle the 'latest-2' case observed before
+    if [ -d "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" ]; then \
+       mv ${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest; \
+    elif [ -d "${ANDROID_SDK_ROOT}/cmdline-tools/latest-2" ]; then \
+       echo "Found latest-2 directory, renaming to latest." ; \
+       rm -rf ${ANDROID_SDK_ROOT}/cmdline-tools/latest && mv ${ANDROID_SDK_ROOT}/cmdline-tools/latest-2 ${ANDROID_SDK_ROOT}/cmdline-tools/latest; \
+    elif [ -d "${ANDROID_SDK_ROOT}/cmdline-tools/latest" ]; then \
+       echo "Found latest directory already." ; \
+    else \
+       echo "Warning: Could not find expected cmdline-tools structure ('cmdline-tools' or 'latest-2'). SDK setup might fail." ; \
+    fi
+    # Ensure the target directory exists before running sdkmanager
+    # RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools/latest && \
+    #     chown -R android-sdk-user:android-sdk ${ANDROID_SDK_ROOT}
 
-                                                         # تثبيت حزم Android SDK المطلوبة مع تجاوز تأكيدات التثبيت
-                                                         RUN yes | sdkmanager --licenses && sdkmanager \
-                                                             "platforms;android-35" "build-tools;36.0.0" "ndk;27.0.12077973" "cmdline-tools;latest" "platform-tools"
+# Set Android environment variables
+ENV ANDROID_HOME=${ANDROID_SDK_ROOT}
+ENV PATH="$PATH:${ANDROID_SDK_ROOT}/platform-tools:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin"
 
-                                                             # تثبيت ADB لتوصيل الهاتف
-                                                             RUN apt install -y adb
+# Install required Android SDK packages, accepting licenses
+# Running as root, specifying sdk_root explicitly
+RUN yes | sdkmanager --licenses --sdk_root=${ANDROID_SDK_ROOT} && \
+    sdkmanager --install "platforms;android-35" "build-tools;36.0.0" "ndk;27.0.12077973" "cmdline-tools;latest" "platform-tools" --sdk_root=${ANDROID_SDK_ROOT}
+# Ensure correct ownership if a dedicated user was used
+# RUN chown -R android-sdk-user:android-sdk ${ANDROID_SDK_ROOT}
 
-                                                             # إعداد سكريبت تبديل إعدادات Gradle (setup-gradle.sh) لتبديل DSL مؤقتاً أثناء البناء
-                                                             COPY setup-gradle.sh /root/setup-gradle.sh
-                                                             RUN chmod +x /root/setup-gradle.sh && /root/setup-gradle.sh
+# Copy setup scripts and set permissions
+COPY setup.sh /root/setup.sh
+RUN chmod +x /root/setup.sh
+COPY auto_sync.sh /root/auto_sync.sh
+RUN chmod +x /root/auto_sync.sh
 
-                                                             # نسخ سكريبتات الإعداد الأخرى (setup.sh و auto_sync.sh) وضبط التصاريح
-                                                             COPY setup.sh /root/setup.sh
-                                                             RUN chmod +x /root/setup.sh
-                                                             COPY auto_sync.sh /root/auto_sync.sh
-                                                             RUN chmod +x /root/auto_sync.sh
+# Copy SSH server config (ensure PermitRootLogin is yes if running as root)
+COPY ssh_config /etc/ssh/sshd_config
 
-                                                             # (اختياري) نسخ ملف إعداد SSH إذا وُجد لتعديل إعدادات SSH داخل الحاوية
-                                                             COPY ssh_config /etc/ssh/sshd_config
+# Add all environment variables and paths permanently to root's bashrc
+RUN echo '\n# Added paths for Dev Environment' >> /root/.bashrc && \
+    echo "export JAVA_HOME=${JAVA_HOME}" >> /root/.bashrc && \
+    echo "export GRADLE_HOME=${GRADLE_HOME}" >> /root/.bashrc && \
+    echo "export ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> /root/.bashrc && \
+    echo "export ANDROID_HOME=${ANDROID_HOME}" >> /root/.bashrc && \
+    echo 'export PATH="$PATH:$JAVA_HOME/bin:$GRADLE_HOME/bin:/opt/flutter/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin"' >> /root/.bashrc
 
-                                                             # ضبط PATH الدائم لجميع الأدوات (Flutter، Android SDK) عبر إضافة الأسطر إلى /root/.bashrc
-                                                             RUN echo 'export PATH="$PATH:/opt/flutter/bin:/opt/android-sdk/platform-tools:/opt/android-sdk/cmdline-tools/latest/bin"' >> /root/.bashrc
+# Set default working directory
+WORKDIR /root/workspace
 
-                                                             # عند بدء تشغيل الحاوية، يتم تشغيل سكريبت setup.sh الذي يقوم بتشغيل SSH واستنساخ المشروع وغيرها من الإعدادات
-                                                             CMD ["/bin/bash", "-c", "/root/setup.sh"]
+# Expose SSH and ADB ports (optional, as mapping is done in `docker run`)
+# EXPOSE 22 5037
+
+# Run setup script on container start
+CMD ["/bin/bash", "/root/setup.sh"]
