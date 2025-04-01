@@ -63,6 +63,8 @@ RUN wget https://storage.googleapis.com/flutter_infra_release/releases/stable/li
     tar xf /tmp/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz -C /opt && \
     rm /tmp/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz
 ENV PATH="/opt/flutter/bin:$PATH"
+# Add safe directory config for git to avoid ownership errors when running flutter doctor
+RUN git config --global --add safe.directory /opt/flutter
 # Run flutter doctor as root during build to download Dart SDK, artifacts, and create cache files with root ownership
 RUN flutter doctor
 
