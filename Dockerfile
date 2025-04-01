@@ -71,12 +71,29 @@ RUN flutter doctor
 # Install Android SDK and NDK in /sdk
 ENV ANDROID_SDK_ROOT=/sdk
 # Create the base SDK directory
-RUN mkdir -p ${ANDROID_SDK_ROOT}
-# Note: We will let sdkmanager handle the creation and population of cmdline-tools/latest
+# Download and unzip initial cmdline-tools to get sdkmanager
+RUN mkdir -p ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmd-tools.zip && \
+    unzip /tmp/cmd-tools.zip -d ${ANDROID_SDK_ROOT}/cmdline-tools && \
+    rm /tmp/cmd-tools.zip && \
+    # Handle the potential nested 'cmdline-tools' directory and 'latest-2' case
+    if [ -d "${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools" ]; then \
+       mv ${ANDROID_SDK_ROOT}/cmdline-tools/cmdline-tools ${ANDROID_SDK_ROOT}/cmdline-tools/latest; \
+    elif [ -d "${ANDROID_SDK_ROOT}/cmdline-tools/latest-2" ]; then \
+       echo "Found latest-2 directory, renaming to latest." ; \
+       rm -rf ${ANDROID_SDK_ROOT}/cmdline-tools/latest && mv ${ANDROID_SDK_ROOT}/cmdline-tools/latest-2 ${ANDROID_SDK_ROOT}/cmdline-tools/latest; \
+    elif [ -d "${ANDROID_SDK_ROOT}/cmdline-tools/latest" ]; then \
+       echo "Found latest directory already." ; \
+    else \
+       echo "Warning: Could not find expected cmdline-tools structure. SDK setup might fail." ; \
+    fi
 
 # Set Android environment variables
 ENV ANDROID_HOME=${ANDROID_SDK_ROOT}
-ENV PATH="$PATH:${ANDROID_SDK_ROOT}/platform-tools:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin"
+# Update PATH immediately to include the newly unzipped cmdline-tools/latest/bin
+ENV PATH="$PATH:${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin"
+# Add platform-tools path as well (sdkmanager will install it later)
+ENV PATH="$PATH:${ANDROID_SDK_ROOT}/platform-tools"
 
 # Install required Android SDK packages, accepting licenses
 # Running as root, specifying sdk_root explicitly
